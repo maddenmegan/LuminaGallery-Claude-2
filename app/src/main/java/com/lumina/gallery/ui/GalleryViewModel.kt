@@ -170,7 +170,7 @@ class GalleryViewModel(app: Application) : AndroidViewModel(app) {
         }
     }
 
-    fun setFilter(f: MediaFilter) { filter = f; recompute() }
+    fun applyFilter(f: MediaFilter) { filter = f; recompute() }
 
     fun setSort(f: SortField) {
         sortField = f
@@ -180,8 +180,8 @@ class GalleryViewModel(app: Application) : AndroidViewModel(app) {
     }
 
     fun setAsc(a: Boolean) { sortAsc = a; prefs.sortAsc = a; recompute() }
-    fun setListView(v: Boolean) { listView = v; prefs.viewList = v }
-    fun setColumns(c: Int) { columns = c; prefs.columns = c }
+    fun applyListView(v: Boolean) { listView = v; prefs.viewList = v }
+    fun applyColumns(c: Int) { columns = c; prefs.columns = c }
     fun toggleShowHidden() { showHidden = !showHidden; recompute() }
 
     fun togglePin(id: Long) {

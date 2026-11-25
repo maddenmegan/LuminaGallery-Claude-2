@@ -89,7 +89,7 @@ fun AlbumsScreen(vm: GalleryViewModel, gridState: LazyGridState, listState: Lazy
         FloatingSearchBar(vm, onDialog = { dialog = it })
         LazyRow(contentPadding = PaddingValues(horizontal = 12.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             items(MediaFilter.entries.toList()) { f ->
-                FilterChip(selected = vm.filter == f, onClick = { vm.setFilter(f) }, label = { Text(f.label) })
+                FilterChip(selected = vm.filter == f, onClick = { vm.applyFilter(f) }, label = { Text(f.label) })
             }
         }
         if (!vm.loaded) {
@@ -208,12 +208,12 @@ private fun FloatingSearchBar(vm: GalleryViewModel, onDialog: (String) -> Unit) 
                     DropdownMenuItem(
                         text = { Text("Grid") },
                         leadingIcon = { if (!vm.listView) Icon(Icons.Default.Check, null) else Box(Modifier.size(24.dp)) },
-                        onClick = { vm.setListView(false); moreMenu = false }
+                        onClick = { vm.applyListView(false); moreMenu = false }
                     )
                     DropdownMenuItem(
                         text = { Text("List") },
                         leadingIcon = { if (vm.listView) Icon(Icons.Default.Check, null) else Box(Modifier.size(24.dp)) },
-                        onClick = { vm.setListView(true); moreMenu = false }
+                        onClick = { vm.applyListView(true); moreMenu = false }
                     )
                     HorizontalDivider()
                     Text("Column count", fontSize = 12.sp, color = cs.onSurfaceVariant, modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp))
@@ -221,7 +221,7 @@ private fun FloatingSearchBar(vm: GalleryViewModel, onDialog: (String) -> Unit) 
                         DropdownMenuItem(
                             text = { Text("$n columns") },
                             leadingIcon = { if (vm.columns == n) Icon(Icons.Default.Check, null) else Box(Modifier.size(24.dp)) },
-                            onClick = { vm.setColumns(n); moreMenu = false }
+                            onClick = { vm.applyColumns(n); moreMenu = false }
                         )
                     }
                     HorizontalDivider()
