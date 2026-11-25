@@ -1,0 +1,88 @@
+name: Build Release APK
+
+on:
+  push:
+    branches: [ main, master ]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      # The GitHub runner already ships an Android SDK (ANDROID_HOME). We only accept licenses and make sure
+      # platform 34 + build-tools 34.0.0 exist. (The android-actions/setup-android step is not needed and fails.)
+      - name: Prepare Android SDK
+        shell: bash
+        run: |
+          SDKM="$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager"
+          [ -x "$SDKM" ] || SDKM="$(command -v sdkmanager)"
+          echo "Using sdkmanager: $SDKM"
+          yes | "$SDKM" --licenses > /dev/null || true
+          "$SDKM" "platforms;android-34" "build-tools;34.0.0" > /dev/null
+          echo "sdk.dir=$ANDROID_HOME" > local.properties
+
+      - name: Set up Gradle 8.9
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.9'
+
+      # Uses your own keystore when these repository secrets exist:
+      #   LUMINA_KEYSTORE_BASE64, LUMINA_KEYSTORE_PASSWORD, LUMINA_KEY_ALIAS, LUMINA_KEY_PASSWORD
+      # Otherwise a throw-away key is generated so the APK is still installable.
+      - name: Prepare signing key
+        shell: bash
+        env:
+          KS_B64: ${{ secrets.LUMINA_KEYSTORE_BASE64 }}
+          KS_PASS_SECRET: ${{ secrets.LUMINA_KEYSTORE_PASSWORD }}
+          KEY_ALIAS_SECRET: ${{ secrets.LUMINA_KEY_ALIAS }}
+          KEY_PASS_SECRET: ${{ secrets.LUMINA_KEY_PASSWORD }}
+        run: |
+          KS="$RUNNER_TEMP/lumina-release.jks"
+          if [ -n "$KS_B64" ]; then
+            echo "$KS_B64" | base64 -d > "$KS"
+            echo "LUMINA_KS_PASS=$KS_PASS_SECRET" >> "$GITHUB_ENV"
+            echo "LUMINA_KEY_ALIAS=$KEY_ALIAS_SECRET" >> "$GITHUB_ENV"
+            echo "LUMINA_KEY_PASS=$KEY_PASS_SECRET" >> "$GITHUB_ENV"
+          else
+            keytool -genkeypair -keystore "$KS" -storepass luminaci123 -keypass luminaci123 \
+              -alias lumina -keyalg RSA -keysize 2048 -validity 10000 \
+              -dname "CN=Lumina Gallery CI, O=Lumina, C=US"
+            echo "LUMINA_KS_PASS=luminaci123" >> "$GITHUB_ENV"
+            echo "LUMINA_KEY_ALIAS=lumina" >> "$GITHUB_ENV"
+            echo "LUMINA_KEY_PASS=luminaci123" >> "$GITHUB_ENV"
+          fi
+          echo "LUMINA_KEYSTORE=$KS" >> "$GITHUB_ENV"
+
+      - name: Build release APK
+        shell: bash
+        run: gradle :app:assembleRelease --stacktrace --no-daemon --console=plain 2>&1 | tee build.log
+
+      # If the build fails, collect just the compiler errors into the run summary page (easy to copy).
+      - name: Collect errors
+        if: failure()
+        shell: bash
+        run: |
+          {
+            echo '## Build errors (copy this)'
+            echo '```'
+            grep -E '^e: |error:|What went wrong|Execution failed|Could not' -A3 build.log | head -160
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: LuminaGallery-release-apk
+          path: app/build/outputs/apk/release/*.apk
+          if-no-files-found: error
