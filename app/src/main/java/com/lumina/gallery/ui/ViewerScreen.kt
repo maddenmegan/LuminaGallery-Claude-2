@@ -124,7 +124,7 @@ fun ViewerScreen(vm: GalleryViewModel, s: Screen.Viewer) {
                     m.isVideo -> VideoPage(m, pager.currentPage == page)
                     m.isPdf -> PdfPage(m)
                     else -> {
-                        val req = remember(m.id) { ImageRequest.Builder(ctx).data(m.uri).size(4096).memoryCacheKey("full-${m.id}").build() }
+                        val req = remember(m.id) { ImageRequest.Builder(ctx).data(m.viewUri).size(4096).memoryCacheKey("full-${m.id}").build() }
                         ZoomableImage(model = req, onTap = { bars = !bars })
                     }
                 }
@@ -242,7 +242,7 @@ private fun VideoPage(m: Media, active: Boolean) {
     val ctx = LocalContext.current
     if (!active) {
         AsyncImage(
-            model = ImageRequest.Builder(ctx).data(m.uri).size(800).build(),
+            model = ImageRequest.Builder(ctx).data(m.viewUri).size(800).build(),
             contentDescription = null, contentScale = ContentScale.Fit, modifier = Modifier.fillMaxSize()
         )
         Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
@@ -252,7 +252,7 @@ private fun VideoPage(m: Media, active: Boolean) {
     }
     val player = remember(m.id) {
         ExoPlayer.Builder(ctx).build().apply {
-            setMediaItem(ExoItem.fromUri(m.uri))
+            setMediaItem(ExoItem.fromUri(m.viewUri))
             prepare()
             playWhenReady = false
         }

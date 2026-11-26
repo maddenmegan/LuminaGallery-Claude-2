@@ -107,7 +107,8 @@ class MediaRepository(private val ctx: Context) {
                         duration = it.getLong(iDur),
                         width = it.getInt(iW),
                         height = it.getInt(iH),
-                        favorite = it.getInt(iFav) == 1
+                        favorite = it.getInt(iFav) == 1,
+                        trashed = trashed
                     )
                 )
             }

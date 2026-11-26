@@ -1,6 +1,7 @@
 package com.lumina.gallery.data
 
 import android.net.Uri
+import android.provider.MediaStore
 
 enum class SortField(val label: String) {
     MODIFIED("Last modified"), NAME("Name"), PATH("Path"), SIZE("Size"), TAKEN("Date taken"), RANDOM("Random")
@@ -25,8 +26,12 @@ data class Media(
     val duration: Long,      // millis
     val width: Int,
     val height: Int,
-    val favorite: Boolean
+    val favorite: Boolean,
+    val trashed: Boolean = false
 ) {
+    /** Trashed items are only readable through the include-trashed form of their URI. */
+    val viewUri: Uri get() = if (trashed) MediaStore.setIncludeTrashed(uri) else uri
+
     val isPdf: Boolean get() = mime == "application/pdf"
     val isGif: Boolean get() = mime == "image/gif"
     val isImage: Boolean get() = !isVideo && !isPdf

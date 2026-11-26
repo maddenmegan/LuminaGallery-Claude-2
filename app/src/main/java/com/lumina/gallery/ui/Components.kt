@@ -3,6 +3,9 @@
 package com.lumina.gallery.ui
 
 import androidx.compose.foundation.ExperimentalFoundationApi
+import android.graphics.Bitmap
+import android.util.LruCache
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
@@ -43,12 +46,14 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
@@ -62,13 +67,18 @@ import coil.compose.AsyncImage
 import coil.request.ImageRequest
 import com.lumina.gallery.data.Media
 import com.lumina.gallery.data.formatDuration
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
 import java.util.TimeZone
 
+private val videoThumbs = LruCache<Long, Bitmap>(400)
+
 @Composable
 fun Thumb(m: Media, modifier: Modifier = Modifier, size: Int = 320) {
+    val ctx = LocalContext.current
     if (m.isPdf) {
         Box(modifier.background(Color(0xFF1E2126)), contentAlignment = Alignment.Center) {
             Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.padding(6.dp)) {
@@ -76,15 +86,34 @@ fun Thumb(m: Media, modifier: Modifier = Modifier, size: Int = 320) {
                 Text(m.name, fontSize = 10.sp, maxLines = 2, overflow = TextOverflow.Ellipsis, color = Color.LightGray)
             }
         }
-    } else {
-        val ctx = LocalContext.current
-        AsyncImage(
-            model = ImageRequest.Builder(ctx).data(m.uri).size(size).memoryCacheKey("${m.id}-$size-${m.modified}").build(),
-            contentDescription = null,
-            contentScale = ContentScale.Crop,
-            modifier = modifier.background(Color(0xFF111316))
-        )
+        return
     }
+    // Videos: the system thumbnail is far more reliable than decoding frame 0 (often black).
+    var failed by remember(m.id) { mutableStateOf(false) }
+    if (m.isVideo && !failed) {
+        val bmp by produceState<Bitmap?>(videoThumbs.get(m.id), m.id) {
+            if (value == null) {
+                val b = withContext(Dispatchers.IO) {
+                    try {
+                        ctx.contentResolver.loadThumbnail(m.viewUri, android.util.Size(size, size), null)
+                    } catch (e: Exception) {
+                        null
+                    }
+                }
+                if (b != null) { videoThumbs.put(m.id, b); value = b } else failed = true
+            }
+        }
+        val b = bmp
+        if (b != null) Image(b.asImageBitmap(), null, contentScale = ContentScale.Crop, modifier = modifier.background(Color(0xFF111316)))
+        else Box(modifier.background(Color(0xFF111316)))
+        return
+    }
+    AsyncImage(
+        model = ImageRequest.Builder(ctx).data(m.viewUri).size(size).memoryCacheKey("${m.id}-$size-${m.modified}").build(),
+        contentDescription = null,
+        contentScale = ContentScale.Crop,
+        modifier = modifier.background(Color(0xFF111316))
+    )
 }
 
 sealed interface Cell { val key: String }
